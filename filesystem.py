@@ -1,3 +1,6 @@
+import os
+import struct
+
 # FileSystemParam class
 class FileSystemParam:
     block_size = 1024
@@ -17,8 +20,6 @@ class DirEntry:
         self.size = 0
 
 # FileSystem class
-import os
-import struct
 
 class FileSystem:
     def __init__(self):
@@ -30,6 +31,43 @@ class FileSystem:
         if not os.path.exists('filesystem.dat'):
             with open('filesystem.dat', 'wb') as f:
                 f.write(bytearray(self.fsparam.blocks * self.fsparam.block_size))  # Initialize file with zeros
+                
+    def init_file_system(self):
+        # Reservar blocos para FAT
+        for i in range(self.fsparam.fat_blocks):
+            self.fat[i] = 0x7FFE  # Blocos reservados para FAT
+
+        # Reservar bloco para diretório raiz
+        self.fat[self.fsparam.root_block] = 0x7FFF  # Diretório raiz
+
+        # Marcar blocos de dados como livres
+        for i in range(self.fsparam.root_block + 1, self.fsparam.blocks):
+            self.fat[i] = 0x0000  # Livre
+
+        # Persistir a FAT no arquivo 'filesystem.dat'
+        self.write_fat('filesystem.dat', self.fat)
+
+        print("FAT inicializada com sucesso!")
+        
+        # Configurar diretório raiz e zerar blocos de dados
+        self.init_root_and_data_blocks()
+        
+    def init_root_and_data_blocks(self):
+        # Inicializar o bloco do diretório raiz
+        root_block = bytearray(self.fsparam.block_size)
+        for i in range(self.fsparam.dir_entries):
+            offset = i * self.fsparam.dir_entry_size
+            root_block[offset:offset + self.fsparam.dir_entry_size] = bytearray(self.fsparam.dir_entry_size)
+        self.write_block('filesystem.dat', self.fsparam.root_block, root_block)
+
+        print("Diretório raiz inicializado com sucesso!")
+
+        # Zerar todos os blocos de dados
+        empty_block = bytearray(self.fsparam.block_size)
+        for i in range(self.fsparam.root_block + 1, self.fsparam.blocks):
+            self.write_block('filesystem.dat', i, empty_block)
+
+        print("Blocos de dados zerados com sucesso!")
 
     def read_block(self, file, block):
         record = bytearray(self.fsparam.block_size)
@@ -132,7 +170,30 @@ class FileSystem:
             dir_entry = self.read_dir_entry(self.fsparam.root_block, i)
             print(f"Entry {i}, file: {dir_entry.filename.decode('utf-8').strip()} attr: {dir_entry.attributes} first: {dir_entry.first_block} size: {dir_entry.size}")
 
+    def init(self):
+        """
+        Comando para inicializar o sistema de arquivos.
+        """
+        print("Inicializando o sistema de arquivos...")
+        self.init_file_system()
+        print("Sistema de arquivos foi formatado e está pronto para uso.")
+
 # App equivalent
 if __name__ == "__main__":
     fs = FileSystem()
-    fs.test_file_system()
+    # fs.init_file_system()
+    
+    while True:
+        print("\nComandos disponíveis:")
+        print("init - Inicializar o sistema de arquivos")
+        print("quit - Sair do programa")
+
+        comando = input("Digite o comando: ").strip().lower()
+
+        if comando == "init":
+            fs.init()
+        elif comando == "quit":
+            print("Saindo do programa...")
+            break
+        else:
+            print("Comando não reconhecido. Tente novamente.")
