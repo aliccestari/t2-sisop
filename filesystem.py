@@ -288,7 +288,6 @@ class FileSystem:
 # App equivalent
 if __name__ == "__main__":
     fs = FileSystem()
-
     # fs.init_file_system()
 
     while True:
