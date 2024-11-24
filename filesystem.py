@@ -187,6 +187,7 @@ class FileSystem:
                 f"Entry {i}, file: {dir_entry.filename.decode('utf-8').strip()} attr: {dir_entry.attributes} first: {dir_entry.first_block} size: {dir_entry.size}"
             )
 
+    # Etapa 4
     def create(self, filename):
         # Leia o diretório raiz
         dir_block = self.read_block("filesystem.dat", self.fsparam.root_block)
@@ -272,6 +273,8 @@ class FileSystem:
         entry.attributes = 0x00  # Marca como entrada vazia
         self.write_dir_entry(self.fsparam.root_block, entry_idx, entry)
         self.save_fat()
+
+    # Acaba aqui as funções
 
     def init(self):
         """
