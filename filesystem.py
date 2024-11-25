@@ -160,20 +160,26 @@ class FileSystem:
         if block is None:
             block = self.root_block
 
+        result = []  # Lista para armazenar os resultados
+
         try:
             for i in range(self.fsparam.dir_entries):
                 entry = self.read_dir_entry(block, i)
                 dir_name = entry.filename.decode("utf-8").strip()
 
-                if entry.attributes != 0x00:
+                if entry.attributes != 0x00:  # Verifica se é uma entrada válida
                     entry_type = "DIR" if entry.attributes == 0x02 else "FILE"
-                    print(f"{'  ' * indent_level}- {dir_name}")
+                    result.append(f"{'  ' * indent_level}- {dir_name} ({entry_type})")
 
+                    # Se for um diretório, lista recursivamente
                     if entry.attributes == 0x02:
-                        self.ls(entry.first_block, indent_level + 1)
+                        result.extend(self.ls(entry.first_block, indent_level + 1))
 
         except Exception as e:
-            print(f"Erro ao tentar listar o diretório: {str(e)}")
+            result.append(f"Erro ao tentar listar o diretório: {str(e)}")
+
+        return result
+
 
     def read_block(self, file, block):
         record = bytearray(self.fsparam.block_size)
