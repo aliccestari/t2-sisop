@@ -26,7 +26,9 @@ class FileSystemShellGUI:
         )
         self.output_area.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
         self.output_area.insert(tk.END, "Bem-vindo ao Shell do Sistema de Arquivos!\n")
-        self.output_area.insert(tk.END, "Digite 'help' para ver os comandos disponíveis.\n\n")
+        self.output_area.insert(
+            tk.END, "Digite 'help' para ver os comandos disponíveis.\n\n"
+        )
         self.output_area.configure(state="disabled")
 
         self.command_entry = tk.Entry(
@@ -38,7 +40,6 @@ class FileSystemShellGUI:
         )
         self.command_entry.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
         self.command_entry.bind("<Return>", self.execute_command)
-
 
     def log_output(self, message):
         """Adiciona mensagens na área de saída."""
@@ -60,12 +61,16 @@ class FileSystemShellGUI:
                 self.log_output("Comandos disponíveis:")
                 self.log_output("init - Inicializar o sistema de arquivos")
                 self.log_output("load - Carregar o sistema de arquivos")
-                self.log_output("mkdir [nome] - Criar diretório")
+                self.log_output("mkdir /[nome_dir] - Criar diretório")
                 self.log_output("ls - Listar conteúdo do diretório raiz")
-                self.log_output("create [nome] - Criar arquivo")
-                self.log_output("write [nome] [dados] - Escrever dados em um arquivo")
-                self.log_output("append [nome] [dados] - Adicionar dados ao final de um arquivo")
-                self.log_output("read [nome] - Ler conteúdo de um arquivo")
+                self.log_output("create /[nome_dir][nome_arq] - Criar arquivo")
+                self.log_output(
+                    "write [nome_arq] [dados] - Escrever dados em um arquivo"
+                )
+                self.log_output(
+                    "append [nome_arq] [dados] - Adicionar dados ao final de um arquivo"
+                )
+                self.log_output("read [nome_arq] - Ler conteúdo de um arquivo")
                 self.log_output("unlink [nome] - Remover um arquivo")
                 self.log_output("quit - Sair do programa")
             elif command == "init":
@@ -78,7 +83,9 @@ class FileSystemShellGUI:
                 args = command.split(" ", 1)
                 if len(args) > 1 and args[1].strip():
                     self.fs.mkdir(args[1].strip())
-                    self.log_output(f"Diretório '{args[1].strip()}' criado com sucesso!")
+                    self.log_output(
+                        f"Diretório '{args[1].strip()}' criado com sucesso!"
+                    )
                 else:
                     self.log_output("Erro: Nome do diretório não fornecido.")
             elif command == "ls":
@@ -89,48 +96,65 @@ class FileSystemShellGUI:
                         self.log_output(entry)
                 except Exception as e:
                     self.log_output(f"Erro ao listar conteúdo do diretório: {str(e)}")
-
-
             elif command.startswith("create"):
-                args = command.split(" ", 1)
-                if len(args) > 1 and args[1].strip():
-                    self.fs.create(args[1].strip())
-                    self.log_output(f"Arquivo '{args[1].strip()}' criado com sucesso!")
+                args = command.split(" ", 2)
+                if len(args) > 2 and args[1].strip() and args[2].strip():
+                    directory = args[1].strip()
+                    filename = args[2].strip()
+                    try:
+                        self.fs.create(directory, filename)
+                        self.log_output(
+                            f"Arquivo '{filename}' criado no diretório '{directory}' com sucesso!"
+                        )
+                    except Exception as e:
+                        self.log_output(f"Erro ao criar arquivo: {str(e)}")
                 else:
-                    self.log_output("Erro: Nome do arquivo não fornecido.")
+                    self.log_output(
+                        "Erro: Caminho do diretório ou nome do arquivo não fornecidos."
+                    )
             elif command.startswith("write"):
                 args = command.split(" ", 2)
                 if len(args) > 2:
                     self.fs.write(args[1].strip(), args[2].encode("utf-8"))
-                    self.log_output(f"Dados escritos no arquivo '{args[1].strip()}' com sucesso!")
+                    self.log_output(
+                        f"Dados escritos no arquivo '{args[1].strip()}' com sucesso!"
+                    )
                 else:
                     self.log_output("Erro: Nome do arquivo ou dados não fornecidos.")
             elif command.startswith("append"):
                 args = command.split(" ", 2)
                 if len(args) > 2:
                     self.fs.append(args[1].strip(), args[2].encode("utf-8"))
-                    self.log_output(f"Dados adicionados ao arquivo '{args[1].strip()}' com sucesso!")
+                    self.log_output(
+                        f"Dados adicionados ao arquivo '{args[1].strip()}' com sucesso!"
+                    )
                 else:
                     self.log_output("Erro: Nome do arquivo ou dados não fornecidos.")
             elif command.startswith("read"):
                 args = command.split(" ", 1)
                 if len(args) > 1 and args[1].strip():
                     content = self.fs.read(args[1].strip())
-                    self.log_output(f"Conteúdo do arquivo '{args[1].strip()}':\n{content.decode('utf-8')}")
+                    self.log_output(
+                        f"Conteúdo do arquivo '{args[1].strip()}':\n{content.decode('utf-8')}"
+                    )
                 else:
                     self.log_output("Erro: Nome do arquivo não fornecido.")
             elif command.startswith("unlink"):
                 args = command.split(" ", 1)
                 if len(args) > 1 and args[1].strip():
                     self.fs.unlink(args[1].strip())
-                    self.log_output(f"Arquivo '{args[1].strip()}' removido com sucesso!")
+                    self.log_output(
+                        f"Arquivo '{args[1].strip()}' removido com sucesso!"
+                    )
                 else:
                     self.log_output("Erro: Nome do arquivo não fornecido.")
             elif command == "quit":
                 self.log_output("Saindo do programa...")
                 self.window.quit()
             else:
-                self.log_output("Comando não reconhecido. Digite 'help' para ver os comandos disponíveis.")
+                self.log_output(
+                    "Comando não reconhecido. Digite 'help' para ver os comandos disponíveis."
+                )
         except Exception as e:
             self.log_output(f"Erro: {str(e)}")
 
@@ -144,6 +168,7 @@ class FileSystemShellGUI:
 
 if __name__ == "__main__":
     from filesystem import FileSystem
+
     fs = FileSystem()
     shell_gui = FileSystemShellGUI(fs)
     shell_gui.run()

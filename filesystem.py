@@ -180,7 +180,6 @@ class FileSystem:
 
         return result
 
-
     def read_block(self, file, block):
         record = bytearray(self.fsparam.block_size)
         try:
@@ -286,9 +285,18 @@ class FileSystem:
         # Atualiza a FAT no arquivo
         self.write_fat("filesystem.dat", self.fat)
 
-    def create(self, filename):
-        # Leia o diretório raiz
-        dir_block = self.read_block("filesystem.dat", self.fsparam.root_block)
+    def create(self, directory, filename):
+        parent_block = (
+            self.fsparam.root_block
+            if directory == "/"
+            else self.find_directory(directory, self.fsparam.root_block)
+        )
+
+        if parent_block is None:
+            raise Exception(f"Diretório '{directory}' não encontrado.")
+
+        # Leia o diretório
+        dir_block = self.read_block("filesystem.dat", parent_block)
         for i in range(self.fsparam.dir_entries):
             offset = i * self.fsparam.dir_entry_size
             if dir_block[offset + 25] == 0x00:  # Entrada vazia
@@ -303,11 +311,10 @@ class FileSystem:
                 entry.size = 0
 
                 # Escreve a entrada no diretório
-                self.write_dir_entry(self.fsparam.root_block, i, entry)
+                self.write_dir_entry(parent_block, i, entry)
 
-                # Salva a FAT atualizada
+                # Atualiza a FAT
                 self.write_fat("filesystem.dat", self.fat)
-                print(f"Arquivo '{filename}' criado com sucesso!")
                 return
         raise Exception("O diretório está cheio!")
 
@@ -391,19 +398,42 @@ class FileSystem:
         print(f"Conteúdo do arquivo '{filename}': {data[:entry.size].decode('utf-8')}")
         return data[: entry.size]
 
-    def unlink(self, filename):
-        entry, entry_idx = self.find_entry(filename)
-        if not entry:
-            raise Exception(f"Arquivo {filename} não encontrado.")
+    def unlink(self, path):
+        path_parts = path.strip("/").split("/")
+        filename = path_parts[-1]
+        parent_path = "/".join(path_parts[:-1])
 
-        # Libera os blocos na FAT
+        # Encontre o bloco do diretório pai
+        parent_block = (
+            self.fsparam.root_block
+            if not parent_path
+            else self.find_directory(parent_path, self.fsparam.root_block)
+        )
+        if parent_block is None:
+            raise Exception(f"Erro: O diretório '{parent_path}' não foi encontrado.")
+
+        # Procure o arquivo no diretório pai
+        entry, entry_idx = self.find_entry(filename, parent_block)
+        if not entry:
+            raise Exception(f"Erro: Arquivo ou diretório '{filename}' não encontrado.")
+
+        # Verifique se é um diretório e está vazio
+        if entry.attributes == 0x02:  # Diretório
+            for i in range(self.fsparam.dir_entries):
+                sub_entry = self.read_dir_entry(entry.first_block, i)
+                if sub_entry.attributes != 0x00:
+                    raise Exception(
+                        f"Erro: O diretório '{filename}' não está vazio. Remova o conteúdo primeiro."
+                    )
+
+        # Libere os blocos associados ao arquivo ou diretório
         self.free_block(entry.first_block)
 
-        # Remove a entrada no diretório
+        # Remova a entrada no diretório
         entry.attributes = 0x00  # Marca como entrada vazia
-        self.write_dir_entry(self.fsparam.root_block, entry_idx, entry)
+        self.write_dir_entry(parent_block, entry_idx, entry)
         self.write_fat("filesystem.dat", self.fat)
-        print(f"Arquivo '{filename}' removido com sucesso!")
+        print(f"Arquivo ou diretório '{filename}' removido com sucesso!")
 
     def debug_fat(self):
         """Exibe o encadeamento da FAT para depuração."""
@@ -411,6 +441,15 @@ class FileSystem:
         for i, value in enumerate(self.fat):
             if value != 0x0000:  # Mostra apenas blocos alocados
                 print(f"Bloco {i}: {value}")
+
+    def debug_entry(self, filename):
+        entry, _ = self.find_entry(filename)
+        if entry:
+            print(
+                f"Nome: {entry.filename.decode('utf-8').strip()}, Atributo: {entry.attributes}"
+            )
+        else:
+            print(f"Entrada '{filename}' não encontrada.")
 
     def init(self):
         self.init_file_system()
@@ -423,7 +462,7 @@ if __name__ == "__main__":
         print("\nComandos disponíveis:")
         print("init - Inicializar o sistema de arquivos")
         print("load - Carregar o sistema de arquivos")
-        print("mkdir [nome] - Criar diretório")
+        print("mkdir [nome_dir] - Criar diretório")
         print("ls - Listar conteúdo do diretório raiz")
         print("create [nome] - Criar arquivo")
         print("write [nome] [dados] - Escrever dados em um arquivo")
@@ -478,6 +517,12 @@ if __name__ == "__main__":
                 print("Erro: Nome do arquivo não fornecido.")
         elif comando == "debug_fat":
             fs.debug_fat()
+        elif comando.startswith("debug_entry"):
+            args = comando.split(" ", 1)
+            if len(args) > 1 and args[1].strip():
+                fs.debug_entry(args[1].strip())
+            else:
+                print("Erro: Nome da entrada não fornecido.")
         elif comando == "quit":
             print("Saindo do programa...")
             break
