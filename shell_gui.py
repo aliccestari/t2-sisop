@@ -71,7 +71,7 @@ class FileSystemShellGUI:
                     "append [nome_arq] [dados] - Adicionar dados ao final de um arquivo"
                 )
                 self.log_output("read [nome_arq] - Ler conteúdo de um arquivo")
-                self.log_output("unlink [nome] - Remover um arquivo")
+                self.log_output("unlink [caminho] - Remover um arquivo")
                 self.log_output("quit - Sair do programa")
             elif command == "init":
                 self.fs.init()
