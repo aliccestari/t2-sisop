@@ -454,12 +454,12 @@ class FileSystem:
             else self.find_directory(parent_path, self.fsparam.root_block)
         )
         if parent_block is None:
-            raise Exception(f"Erro: O diretório '{parent_path}' não foi encontrado.")
+            raise Exception(f"O diretório '{parent_path}' não foi encontrado.")
 
         # Procure o arquivo no diretório pai
         entry, entry_idx = self.find_entry(filename, parent_block)
         if not entry:
-            raise Exception(f"Erro: Arquivo ou diretório '{filename}' não encontrado.")
+            raise Exception(f"Arquivo ou diretório '{filename}' não encontrado.")
 
         # Verifique se é um diretório e está vazio
         if entry.attributes == 0x02:  # Diretório
@@ -467,7 +467,7 @@ class FileSystem:
                 sub_entry = self.read_dir_entry(entry.first_block, i)
                 if sub_entry.attributes != 0x00:
                     raise Exception(
-                        f"Erro: O diretório '{filename}' não está vazio. Remova o conteúdo primeiro."
+                        f"O diretório '{filename}' não está vazio. Remova o conteúdo primeiro."
                     )
 
         # Libere os blocos associados ao arquivo ou diretório
