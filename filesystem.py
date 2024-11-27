@@ -318,36 +318,97 @@ class FileSystem:
                 return
         raise Exception("O diretório está cheio!")
 
-    def write(self, filename, data):
-        entry, entry_idx = self.find_entry(filename)
+    def write(self, filepath, data):
+        path_parts = filepath.strip("/").split("/")
+        filename = path_parts[-1]
+        parent_path = "/".join(path_parts[:-1])
+
+        parent_block = (
+            self.fsparam.root_block
+            if not parent_path
+            else self.find_directory(parent_path, self.fsparam.root_block)
+        )
+
+        if parent_block is None:
+            raise Exception(f"Diretório '{parent_path}' não encontrado.")
+
+        entry, entry_idx = self.find_entry(filename, parent_block)
         if not entry:
-            raise Exception(f"Arquivo {filename} não encontrado.")
+            raise Exception(
+                f"Arquivo '{filename}' não encontrado no diretório '{parent_path}'."
+            )
 
         # Libera os blocos antigos
         self.free_block(entry.first_block)
 
         # Divide os dados em blocos de 1024 bytes e grava
-        first_block = self.find_free_block()  # Encontra um bloco livre
+        first_block = self.allocate_block()
         entry.first_block = first_block
         entry.size = len(data)
         self.write_data_to_blocks(data, first_block)
 
         # Atualiza a entrada no diretório
-        self.write_dir_entry(self.fsparam.root_block, entry_idx, entry)
+        self.write_dir_entry(parent_block, entry_idx, entry)
         self.write_fat("filesystem.dat", self.fat)
         print(f"Dados escritos no arquivo '{filename}' com sucesso!")
 
-    def append(self, filename, data):
-        entry, entry_idx = self.find_entry(filename)
+    def read(self, filepath):
+        path_parts = filepath.strip("/").split("/")
+        filename = path_parts[-1]
+        parent_path = "/".join(path_parts[:-1])
+
+        parent_block = (
+            self.fsparam.root_block
+            if not parent_path
+            else self.find_directory(parent_path, self.fsparam.root_block)
+        )
+
+        if parent_block is None:
+            raise Exception(f"Diretório '{parent_path}' não encontrado.")
+
+        entry, _ = self.find_entry(filename, parent_block)
         if not entry:
-            raise Exception(f"Arquivo '{filename}' não encontrado.")
+            raise Exception(
+                f"Arquivo '{filename}' não encontrado no diretório '{parent_path}'."
+            )
+
+        # Percorra os blocos encadeados na FAT e leia os dados
+        data = bytearray()
+        block = entry.first_block
+        while block != 0x7FFF:  # 0x7FFF indica o fim do arquivo
+            data += self.read_block("filesystem.dat", block)
+            block = self.fat[block]
+
+        # Retorna apenas os dados do tamanho correto
+        print(f"Conteúdo do arquivo '{filepath}': {data[:entry.size].decode('utf-8')}")
+        return data[: entry.size]
+
+    def append(self, filepath, data):
+        path_parts = filepath.strip("/").split("/")
+        filename = path_parts[-1]
+        parent_path = "/".join(path_parts[:-1])
+
+        parent_block = (
+            self.fsparam.root_block
+            if not parent_path
+            else self.find_directory(parent_path, self.fsparam.root_block)
+        )
+
+        if parent_block is None:
+            raise Exception(f"Diretório '{parent_path}' não encontrado.")
+
+        entry, entry_idx = self.find_entry(filename, parent_block)
+        if not entry:
+            raise Exception(
+                f"Arquivo '{filename}' não encontrado no diretório '{parent_path}'."
+            )
 
         # Encontra o último bloco do arquivo
         last_block = entry.first_block
-        while self.fat[last_block] != 0x7FFF:  # Percorre até o último bloco
+        while self.fat[last_block] != 0x7FFF:
             last_block = self.fat[last_block]
 
-        # Verifica se há espaço no último bloco
+        # Verifica espaço restante no último bloco
         last_data = self.read_block("filesystem.dat", last_block)
         last_data_len = len(last_data.rstrip(b"\x00"))
         remaining_space = self.fsparam.block_size - last_data_len
@@ -360,7 +421,7 @@ class FileSystem:
             self.write_block("filesystem.dat", last_block, last_data)
             offset += remaining_space
 
-        # Divide os dados restantes e encadeia novos blocos
+        # Encadeia novos blocos com os dados restantes
         block_size = self.fsparam.block_size
         while offset < len(data):
             chunk = data[offset : offset + block_size]
@@ -377,26 +438,9 @@ class FileSystem:
 
         # Atualiza o tamanho do arquivo na entrada do diretório
         entry.size += len(data)
-        self.write_dir_entry(self.fsparam.root_block, entry_idx, entry)
+        self.write_dir_entry(parent_block, entry_idx, entry)
         self.write_fat("filesystem.dat", self.fat)
         print(f"Dados adicionados ao arquivo '{filename}' com sucesso!")
-
-    def read(self, filename):
-        # Localizar o arquivo no diretório
-        entry, _ = self.find_entry(filename)
-        if not entry:
-            raise Exception(f"Arquivo '{filename}' não encontrado.")
-
-        # Percorra os blocos encadeados na FAT e leia os dados
-        data = bytearray()
-        block = entry.first_block
-        while block != 0x7FFF:  # 0x7FFF indica o fim do arquivo
-            data += self.read_block("filesystem.dat", block)
-            block = self.fat[block]
-
-        # Retorna apenas os dados que fazem parte do arquivo (removendo bytes extras)
-        print(f"Conteúdo do arquivo '{filename}': {data[:entry.size].decode('utf-8')}")
-        return data[: entry.size]
 
     def unlink(self, path):
         path_parts = path.strip("/").split("/")

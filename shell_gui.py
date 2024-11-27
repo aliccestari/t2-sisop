@@ -27,7 +27,7 @@ class FileSystemShellGUI:
         self.output_area.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
         self.output_area.insert(tk.END, "Bem-vindo ao Shell do Sistema de Arquivos!\n")
         self.output_area.insert(
-            tk.END, "Digite 'help' para ver os comandos disponíveis.\n\n"
+            tk.END, "Digite 'help' para ver os commands disponíveis.\n\n"
         )
         self.output_area.configure(state="disabled")
 
@@ -49,7 +49,7 @@ class FileSystemShellGUI:
         self.output_area.configure(state="disabled")
 
     def execute_command(self, event):
-        """Executa o comando inserido pelo usuário."""
+        """Executa o command inserido pelo usuário."""
         command = self.command_entry.get().strip()
         if not command:
             return
@@ -58,19 +58,21 @@ class FileSystemShellGUI:
 
         try:
             if command == "help":
-                self.log_output("Comandos disponíveis:")
+                self.log_output("commands disponíveis:")
                 self.log_output("init - Inicializar o sistema de arquivos")
                 self.log_output("load - Carregar o sistema de arquivos")
                 self.log_output("mkdir /[nome_dir] - Criar diretório")
                 self.log_output("ls - Listar conteúdo do diretório raiz")
                 self.log_output("create /[nome_dir][nome_arq] - Criar arquivo")
                 self.log_output(
-                    "write [nome_arq] [dados] - Escrever dados em um arquivo"
+                    "write /[nome_dir]/[nome_arq] [dados] - Escrever dados em um arquivo"
                 )
                 self.log_output(
-                    "append [nome_arq] [dados] - Adicionar dados ao final de um arquivo"
+                    "append /[nome_dir]/[nome_arq] [dados] - Adicionar dados ao final de um arquivo"
                 )
-                self.log_output("read [nome_arq] - Ler conteúdo de um arquivo")
+                self.log_output(
+                    "read /[nome_dir]/[nome_arq] - Ler conteúdo de um arquivo"
+                )
                 self.log_output("unlink [caminho] - Remover um arquivo")
                 self.log_output("quit - Sair do programa")
             elif command == "init":
@@ -115,30 +117,48 @@ class FileSystemShellGUI:
             elif command.startswith("write"):
                 args = command.split(" ", 2)
                 if len(args) > 2:
-                    self.fs.write(args[1].strip(), args[2].encode("utf-8"))
-                    self.log_output(
-                        f"Dados escritos no arquivo '{args[1].strip()}' com sucesso!"
-                    )
+                    try:
+                        self.fs.write(args[1].strip(), args[2].encode("utf-8"))
+                        self.log_output(
+                            f"Dados escritos no arquivo '{args[1].strip()}' com sucesso!"
+                        )
+                    except Exception as e:
+                        self.log_output(f"Erro: {str(e)}")
                 else:
-                    self.log_output("Erro: Nome do arquivo ou dados não fornecidos.")
-            elif command.startswith("append"):
-                args = command.split(" ", 2)
-                if len(args) > 2:
-                    self.fs.append(args[1].strip(), args[2].encode("utf-8"))
-                    self.log_output(
-                        f"Dados adicionados ao arquivo '{args[1].strip()}' com sucesso!"
-                    )
-                else:
-                    self.log_output("Erro: Nome do arquivo ou dados não fornecidos.")
+                    self.log_output("Erro: Caminho do arquivo ou dados não fornecidos.")
+
             elif command.startswith("read"):
                 args = command.split(" ", 1)
                 if len(args) > 1 and args[1].strip():
-                    content = self.fs.read(args[1].strip())
-                    self.log_output(
-                        f"Conteúdo do arquivo '{args[1].strip()}':\n{content.decode('utf-8')}"
-                    )
+                    try:
+                        content = self.fs.read(args[1].strip())
+                        # Decodificar o conteúdo se for um bytearray
+                        decoded_content = (
+                            content.decode("utf-8")
+                            if isinstance(content, (bytes, bytearray))
+                            else content
+                        )
+                        self.log_output(
+                            f"Conteúdo do arquivo '{args[1].strip()}': {decoded_content}"
+                        )
+                    except Exception as e:
+                        self.log_output(f"Erro: {str(e)}")
                 else:
-                    self.log_output("Erro: Nome do arquivo não fornecido.")
+                    self.log_output("Erro: Caminho do arquivo não fornecido.")
+
+            elif command.startswith("append"):
+                args = command.split(" ", 2)
+                if len(args) > 2:
+                    try:
+                        self.fs.append(args[1].strip(), args[2].encode("utf-8"))
+                        self.log_output(
+                            f"Dados adicionados ao arquivo '{args[1].strip()}' com sucesso!"
+                        )
+                    except Exception as e:
+                        self.log_output(f"Erro: {str(e)}")
+                else:
+                    self.log_output("Erro: Caminho do arquivo ou dados não fornecidos.")
+
             elif command.startswith("unlink"):
                 args = command.split(" ", 1)
                 if len(args) > 1 and args[1].strip():
@@ -148,12 +168,14 @@ class FileSystemShellGUI:
                     )
                 else:
                     self.log_output("Erro: Nome do arquivo não fornecido.")
+            elif command == "debug_fat":
+                fs.debug_fat()
             elif command == "quit":
                 self.log_output("Saindo do programa...")
                 self.window.quit()
             else:
                 self.log_output(
-                    "Comando não reconhecido. Digite 'help' para ver os comandos disponíveis."
+                    "command não reconhecido. Digite 'help' para ver os commands disponíveis."
                 )
         except Exception as e:
             self.log_output(f"Erro: {str(e)}")
